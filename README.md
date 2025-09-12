@@ -141,7 +141,7 @@ LLM의 빠른 로딩과 효율적인 추론을 위해 특별히 설계된 바이
 확장성(Extensibility): 새로운 모델 아키텍처나 기술을 쉽게 추가할 수 있도록 유연하게 설계되었습니다.  
 #### 모델 읽는 법
 gemma3:27b-it-qat  
-모델명:파라미터수  
+모델명 젬마 3: 270억 파라미터를 가진 Instruction-Tuned Quantization-Aware Training  
 it  
 • Instruction-Tuned의 약자  
 → 원래의 사전학습(pretrained) 모델을, 사람이 쓰는 지시문(Instruction) 형식에 잘 맞게 추가 학습시킨 버전    
@@ -149,7 +149,7 @@ it
 qat  
 • Quantization-Aware Training의 약자  
 → 단순히 학습이 끝난 모델을 양자화(post-training quantization)하는 게 아니라, 훈련 중에 양자화를 고려하여 학습시킨 방식  
-장점:
+장점:  
 모델을 8비트, 4비트 등으로 줄여도 정확도가 크게 떨어지지 않음   
 더 효율적인 실행 가능 (메모리 절약 + 속도 향상)   
 
