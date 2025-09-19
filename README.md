@@ -1,4 +1,4 @@
-__### LLM 동작 원리  
+### LLM 동작 원리  
   
 1. 질문 이해  
 토큰 단위로 문장을 쪼갠 후, 각 토큰을 '의미지도' 위의 고유한 좌표(숫자)로 변환. 이를 통해 단어의 의미와 관계를 이해  
@@ -179,17 +179,136 @@ Git에 커밋 X
 **환경 변수 사용(.env 파일)**  
 자체 백엔드 서버 통해 api 호출   
 키 관리 서비스(KMS) 사용 고려  
+  
+git bash    
+>>> python  
+>>> from call( py 파일 명) import *  
+>>> chat_streaming()  
+  
+|매개변수 | 설명 | 역할 및 특징| 
+|------|---|------|
+|model 필수 | 사용할 모델 ID 지정 (예: "gpt-4o")|AI의 '두뇌'를 선택하는 가장 기본적인 설정|
+|message 필수| 대화의 맥락을 형성하는 메시지 객체 배열 | 'system', 'user', 'assistant' 역할로 대화 흐름 제어|
+|temperature| 답변의 창의성/ 무작위성 조절(0.0 ~ 2.0)| 낮을수록 일관적, 높을수록 창의적인 답변 생성|
+|max_tokens| 생성될 답변의 최대 길이(토큰) 제한| 비용 관리 및 응답 길이 제어|
+|top_p| 핵 샘플링(Nucleus Sampling) 방식| 'temperature' 와 함께 무작위성 제어 (하나만 조정 권장) |
+|stream|'True' 설정 시, 응답을 실시간 스트림 형태로 전송 |사용자 경험 (UX) 향상 |
 
+json 객체 반환
+|키(key) | 타입 (Type) | 설명 | 
+|------|---|------|
+|id, object, created, model|문자열, 정수|요청과 응답에 대한 고유 식별자 및 메타데이터|
+|choices |배열(Array)|모델이 생성한 응답(들)을 담는 가장 중요한 부분입니다. 실제 텍스트는 **choices[0].message.content** 경로로 접근합니다.|
+|usage|객체 (Object) |요청에 사용된 토큰 수를 알려줍니다. - 'promt_tokens': 입력 토큰 수 -'completion_tokens': 출력(응답) 토큰 수 - 'total_tokens': 총 사용 토큰 수|
 
+- 'usage' 객체는 비용 청구 및 사용량 추적의 핵심 기준
+  
+messages 배열   
+system: ai 모델의 전반적인 역할 설정  
+user: 사용자의 질문
+assistant: 이전 AI의 답변(대화 맥락 유지)  
+대화의 종류  
+1: 단일 턴(Single-Turn) 한 번의 질문과 한 번의 답변으로 끝나는, '기억'이 없는 독립적인 상호작용   
+2: 다중 턴(Multi-Turn) 여러 번의 질문과 답변이 오가며, 이전 대화의 맥락을 계속 이어가는 '기억'이 있는 대화  
+멀티 턴의 트레이드오프 (장단점)  
+토큰 증가로 비용증가, 컨텍스트 창 제한 문제(한번에 기억할 수 있는 양)  
 
+### 함수 호출(Tool use) 
+언어 모델이 외부 함수나 API를 호출하여, 실시간 데이터 조회나 외부 서비스 제어등 실제 세계와 상호작용 가능한 추론엔진으로 변화시킴  
+순서  
+1. 함수 정의와 함께 호출  
+2. 모델의 함수 호출 요청  
+3. 함수 실행 및 결과 전달   
 
-
-
-
-
-
-
-
+날씨 찾기 일 때 예제  
+```python
+import json
+from openai import OpenAI
+from dotenv import load_dotenv
+load_dotenv()
+client = OpenAI()
+# 1단계: 모델이 호출할 로컬 함수 정의
+def get_current_weather(location: str, unit: str = "celsius"):
+    """지정된 위치의 현재 날씨 정보를 가져옵니다."""
+    if "tokyo" in location.lower():
+        return json.dumps({"location": "Tokyo", "temperature": "15", "unit": unit})
+    elif "san francisco" in location.lower():
+        return json.dumps({"location": "San Francisco", "temperature": "20", "unit": unit})
+    elif "paris" in location.lower():
+        return json.dumps({"location": "Paris", "temperature": "12", "unit": unit})
+    else:
+        return json.dumps({"location": location, "temperature": "unknown"})
+# 2단계: 함수 호출 워크플로우 실행
+def run_conversation():
+    messages = [
+        {"role": "system", "content": "당신은 유용한 날씨 도우미입니다."},
+        {"role": "user", "content": "샌프란시스코의 현재 온도를 알려줘. 섭씨로 부탁해."},
+    ]
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "get_current_weather",
+                "description": "지정된 위치의 현재 날씨 정보를 가져옵니다.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "location": {
+                            "type": "string",
+                            "description": "도시명. 예: San Francisco, Tokyo, Paris"
+                        },
+                        "unit": {
+                            "type": "string",
+                            "enum": ["celsius", "fahrenheit"],  # 화씨 혹은 섭씨 사용할지 
+                            "description": "온도 단위"
+                        }
+                    },
+                    "required": ["location"] # 꼭 필요한 정보 "required" 
+                }
+            }
+        }
+    ]
+    # 3단계: 1차 API 호출 (모델에게 함수 사용 요청)
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=messages,
+        tools=tools,
+        tool_choice="auto",   # tool_choice = "auto" ai에게 tool 선택 자유를 줌  
+    )
+    response_message = response.choices[0].message
+    tool_calls = getattr(response_message, "tool_calls", None)
+    # 4단계: 모델이 함수 호출을 요청했는지 확인하고 실행
+    if tool_calls:
+        messages.append(response_message)  # 모델의 응답(함수 호출 요청)을 대화 기록에 추가
+        available_functions = {"get_current_weather": get_current_weather}
+        for tool_call in tool_calls:
+            function_name = tool_call.function.name
+            function_to_call = available_functions[function_name]
+            function_args = json.loads(tool_call.function.arguments)
+            function_response = function_to_call(
+                location=function_args.get("location"),
+                unit=function_args.get("unit"),
+            )
+            # 5단계: 함수의 실행 결과를 대화 기록에 추가
+            messages.append(
+                {
+                    "tool_call_id": tool_call.id,
+                    "role": "tool",
+                    "name": function_name,
+                    "content": function_response,
+                }
+            )
+        # 6단계: 2차 API 호출 (함수 결과를 모델에게 전달하여 최종 답변 생성)
+        second_response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+        )
+        return second_response.choices[0].message.content
+    else:
+        return response_message.content
+final_answer = run_conversation()
+print(final_answer)
+```
 
 
 
