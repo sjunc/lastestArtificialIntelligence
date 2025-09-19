@@ -180,10 +180,10 @@ Git에 커밋 X
 자체 백엔드 서버 통해 api 호출   
 키 관리 서비스(KMS) 사용 고려  
   
-git bash    
->>> python  
->>> from call( py 파일 명) import *  
->>> chat_streaming()  
+- git bash    
+- >>> python  
+- >>> from call( py 파일 명) import *  
+- >>> chat_streaming()  
   
 |매개변수 | 설명 | 역할 및 특징| 
 |------|---|------|
@@ -309,7 +309,10 @@ def run_conversation():
 final_answer = run_conversation()
 print(final_answer)
 ```
-
+두번의 API 호출이 필요  
+1. 1단계: 모델에 함수 정보와 함께 요청
+2. 2단계: 애플리케이션에서 함수 실행
+3. 3단계: 실행 결과를 모델에 다시 전달 
 
 
 
